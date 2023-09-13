@@ -12,11 +12,11 @@ Unfortunately, the C++ ecosystem is full of footguns, and dynamic linking is a s
 
 ## What's the current status?
 
-The implementation is very bare-bones and it's not ready for general use. For the initial commit it won't even parse a config file to discover printers, you have to hard-code the IP into the server, to give you an idea of where this code is at in terms of maturity.
+Currently you can control and monitor the printer's vitals, jog and home the axes and start print jobs. You can't view the camera feed yet. The implementation is very bare-bones and it's not ready for general use. For the initial commit it won't even parse a config file to discover printers, you have to hard-code the IP into the server, to give you an idea of where this code is at in terms of maturity.
 
 ## What do I need to build/run it?
 
-Off the top of my head, you'll need Rust/Cargo, OpenSSL (development packages), GNU Make, a C/C++ build system, a protocol buffers compiler (protoc), and a little bit of determination to fix any issues that come up. Some of my projects are very highly polished, but this is not one of them.
+Off the top of my head, you'll need Rust/Cargo, OpenSSL (development packages), GNU Make, a C/C++ build system, a protocol buffers compiler (protoc), cURL, and a little bit of determination to fix any issues that come up. Some of my projects are very highly polished, but this is not one of them.
 
 ## Get involved!
 
