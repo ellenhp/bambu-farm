@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+message PrinterOptionRequest {
+}
+
+message PrinterOption {
+    string dev_name = 1;
+    string dev_id = 2;
+}
+
+message PrinterOptionList {
+    repeated PrinterOption options = 1;
+}
+
+message ConnectRequest {
+    string dev_id = 1;
+}
+
+message RecvMessage {
+    bool connected = 1;
+    string dev_id = 2;
+    string data = 3;
+}
+
+message SendMessageRequest {
+    string dev_id = 1;
+    string data = 2;
+}
+
+message SendMessageResponse {
+    bool success = 1;
+}
+
+message UploadFileRequest {
+    string dev_id = 1;
+    bytes blob = 2;
+    string remote_path = 3;
+}
+
+message UploadFileResponse {
+    bool success = 1;
+}
+
+service BambuFarm {
+    rpc GetAvailablePrinters(PrinterOptionRequest) returns (stream PrinterOptionList);
+    rpc ConnectPrinter(ConnectRequest) returns (stream RecvMessage);
+    rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+    rpc UploadFile(UploadFileRequest) returns (UploadFileResponse);
+}
