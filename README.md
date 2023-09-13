@@ -8,7 +8,7 @@ As of writing (September 2023) Bambu Labs has not released the source code for t
 
 At startup, Bambu Studio looks for a plugin called `libbambu_networking.so`, `dlopen`s it and calls into it for networking functionality. By default, it will use the proprietary version installed from Bambu Labs' servers. I don't like that, so I wrote my own. It's a drop-in replacement, and there's a Makefile in this project that will symlink the build artifacts into `$HOME/.config/BambuStudio/plugins/*` to install the FOSS plugin. Bambu Studio will then use this version instead of its own.
 
-Unfortunately, the C++ ecosystem is full of footguns, and dynamic linking is a sham, so you can't use OpenSSL in `libbambu_networking.so` or it'll segfault. This presents a lot of issues considering Bambu Labs' use of TLS for MQTT and FTP, so I extracted all of the command and control logic into a server process and use gRPC to communicate between `libbambu_networking.so` and the server. A side-effect is that this makes the architecture scale to arbitrarily large print farms and should allow communication between clients and printers on different networks, as well as allowing the implementation of fine-grained access controls.
+Unfortunately, the C++ ecosystem is full of footguns, and dynamic linking is a sham, so you can't use OpenSSL in `libbambu_networking.so` or it'll segfault. This presents a lot of issues considering Bambu Labs' use of TLS for MQTT and FTP, so I extracted all of the command and control logic into a server process and use gRPC to communicate between `libbambu_networking.so` and the server. That gRPC link will eventually be able to use TLS with `rustls` and `ring`, dodging the OpenSSL difficulties. A side-effect of this separation between client and server is that this makes the architecture scale to arbitrarily large print farms and should allow communication between clients and printers on different networks, as well as allowing the implementation of fine-grained access controls.
 
 ## What's the current status?
 
@@ -24,7 +24,7 @@ If a feature you need is missing open an issue to run it by me, but it's very li
 
 ## Any caveats?
 
-Be aware that once you install *any* networking plugin, Bambu Studio will assume that you've installed *theirs* and will "upgrade" it by replacing it with their proprietary version without your consent. I plan on opening a bug against them for that.
+Be aware that once you install *any* networking plugin, Bambu Studio will assume that you've installed *theirs* and will "upgrade" it whenever you install a new version of Bambu Studio by replacing it with their proprietary version without your consent. I plan on opening a bug against them for that.
 
 ## Licensing information
 
