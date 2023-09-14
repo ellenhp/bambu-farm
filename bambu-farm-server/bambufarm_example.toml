@@ -1,0 +1,5 @@
+endpoint = "[::1]:47403"
+
+printers = [
+    { "name" = "Example X1C", model = "X1C", "host" = "my_printer_ip_address", "dev_id" = "01234567", "password" = "abcdefgh" }
+]

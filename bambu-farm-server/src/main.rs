@@ -3,6 +3,7 @@ use bambu_farm::{
     bambu_farm_server::BambuFarm, ConnectRequest, PrinterOptionList, PrinterOptionRequest,
     RecvMessage, SendMessageRequest, SendMessageResponse, UploadFileRequest, UploadFileResponse,
 };
+use config::{Config, ConfigError, Value};
 use paho_mqtt::{
     AsyncClient, ConnectOptionsBuilder, CreateOptionsBuilder, Message, SslOptionsBuilder,
 };
@@ -12,6 +13,7 @@ use tokio::time::sleep;
 
 use crate::bambu_farm::bambu_farm_server::BambuFarmServer;
 use std::collections::HashMap;
+use std::env::current_dir;
 use std::io::Write;
 use std::process::Command;
 use std::sync::Arc;
@@ -31,6 +33,7 @@ struct Printer {
     name: String,
     id: String,
     ip: String,
+    model: String,
     password: String,
 }
 
@@ -247,17 +250,111 @@ impl BambuFarm for Farm {
     }
 }
 
+fn construct_printer(config: Value) -> Option<Printer> {
+    let printer = config.into_table().unwrap_or_default();
+
+    let dev_id = if let Some(dev_id) = printer.get("dev_id") {
+        dev_id
+    } else {
+        eprintln!("Missing `dev_id` in printer config.");
+        return None;
+    };
+    let model = if let Some(model) = printer.get("model") {
+        match model.to_string().to_lowercase().as_str() {
+            "x1c" => "3DPrinter-X1-Carbon",
+            "x1" => "3DPrinter-X1",
+            _ => {
+                eprintln!("Expected printer field `model` to be one of [`x1`, `x1c`].");
+                return None;
+            }
+        }
+    } else {
+        eprintln!("Missing `model` in printer config.");
+        return None;
+    };
+    let host = if let Some(host) = printer.get("host") {
+        host
+    } else {
+        eprintln!("Missing `host` in printer config.");
+        return None;
+    };
+    let password = if let Some(password) = printer.get("password") {
+        password
+    } else {
+        eprintln!("Missing `password` in printer config.");
+        return None;
+    };
+    let name = if let Some(name) = printer.get("name") {
+        name
+    } else {
+        eprintln!("Missing `name` in printer config.");
+        return None;
+    };
+    Some(Printer {
+        name: name.to_string(),
+        id: dev_id.to_string(),
+        ip: host.to_string(),
+        model: model.to_string(),
+        password: password.to_string(),
+    })
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
-    let addr = "[::1]:47403".parse().unwrap();
+
+    let config_file_path = if let Ok(dir) = current_dir() {
+        dir.join("bambufarm.toml")
+    } else {
+        "bambufarm.toml".into()
+    };
+
+    let config = match Config::builder()
+        .add_source(config::File::with_name(&config_file_path.to_string_lossy()).required(false))
+        .add_source(config::Environment::with_prefix("BAMBU_FARM"))
+        .build()
+    {
+        Ok(config) => config,
+        Err(err) => {
+            match err {
+                ConfigError::NotFound(_) => {
+                    eprintln!(
+                        "No config file found. Try adding one at `{}`",
+                        config_file_path.to_string_lossy()
+                    );
+                }
+                ConfigError::FileParse { uri, cause } => {
+                    if let Some(uri) = uri {
+                        eprintln!("Error parsing config file at {}\nCause:{}", uri, cause);
+                    } else {
+                        eprintln!("Error parsing config file.")
+                    }
+                }
+                _ => {
+                    eprintln!("Unknown error parsing config file {:?}", err)
+                }
+            }
+            return Ok(());
+        }
+    };
+    let addr = config
+        .get_string("endpoint")
+        .unwrap_or("[::1]:47403".into());
+    let addr = addr.parse().unwrap();
+
     let farm = Farm::default();
-    farm.printers.lock().unwrap().push(Printer {
-        name: "My Printer".to_string(),
-        id: "TBD".to_string(),
-        ip: "TBD".to_string(),
-        password: "TBD".to_string(),
-    });
+    for printer in config.get_array("printers").unwrap_or_default() {
+        if let Some(printer) = construct_printer(printer) {
+            farm.printers.lock().unwrap().push(printer);
+        }
+    }
+    if farm.printers.lock().unwrap().is_empty() {
+        eprintln!(
+            "No printers found, or printer config was invalid. Try adding some to the config file at `{}`",
+            config_file_path.to_string_lossy()
+        );
+        return Ok(());
+    }
 
     println!("BambuFarmServer listening on {}", addr);
 
