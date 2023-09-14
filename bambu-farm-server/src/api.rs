@@ -23,27 +23,7 @@ use tokio::runtime::{self, Runtime};
 use tokio::spawn;
 use tokio::time::sleep;
 
-pub fn bambu_network_rs_init() {
-    thread::spawn(|| loop {
-        let_cxx_string!(
-            json = "
-                    {
-                        \"dev_name\": \"My Printer\",
-                        \"dev_id\": \"TBD\",
-                        \"dev_ip\": \"TBD\",
-                        \"dev_type\": \"3DPrinter-X1-Carbon\",
-                        \"dev_signal\": \"0dbm\",
-                        \"connect_type\": \"lan\",
-                        \"bind_state\": \"free\"
-                    }
-                "
-            .trim()
-            .as_bytes()
-        );
-        // bambu_network_cb_printer_available(&json);
-        thread::sleep(Duration::from_secs(1));
-    });
-}
+pub fn bambu_network_rs_init() {}
 
 pub fn bambu_network_rs_connect(
     device_id: String,

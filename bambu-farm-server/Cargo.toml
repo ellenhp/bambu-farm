@@ -17,6 +17,7 @@ async-trait = "0.1.73"
 paho-mqtt = "0.12.1"
 tempfile = "3.8.0"
 env_logger = "0.10.0"
+config = { version = "0.13.3", features = ["toml"] }
 
 [build-dependencies]
 tonic-build = "0.10"
