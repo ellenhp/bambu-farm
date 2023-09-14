@@ -2,7 +2,7 @@
 
 Run your own cloud service for Bambu Labs printers and unlock the full potential of LAN mode!
 
-As of writing (September 2023) Bambu Labs has not released the source code for the `libbambu_networking.so` shared library that they link with to provide the full functionality of Bambu Studio, forked from the AGPLv3 Prusa Slicer. Until they choose to release the code on their own or somebody with deep pockets decides to sue them, you can use this project to provide your own LAN-mode "cloud" printing service. Or at least, you could, *if* you help me figure out the finishing touches like config files, auth, bugfixes, replacing `.unwrap()`s with error handling, and general quality of life features. 👀
+As of writing (September 2023) Bambu Labs has not released the source code for the `libbambu_networking.so` shared library that they link with to provide the full functionality of Bambu Studio, forked from the AGPLv3 Prusa Slicer. Until they choose to release the code on their own or somebody with deep pockets decides to sue them, you can use this project to provide your own LAN-mode "cloud" printing service. Or at least, you could, *if* you help me figure out the finishing touches like auth, bugfixes, replacing `.unwrap()`s with error handling, and general quality of life features. 👀
 
 ## How does it work?
 
@@ -12,7 +12,7 @@ Unfortunately, the C++ ecosystem is full of footguns, and dynamic linking is a s
 
 ## What's the current status?
 
-Currently you can control and monitor the printer's vitals, jog and home the axes and start print jobs. You can't view the camera feed yet. The implementation is very bare-bones and it's not ready for general use. For the initial commit it won't even parse a config file to discover printers, you have to hard-code the IP into the server, to give you an idea of where this code is at in terms of maturity.
+Currently you can control and monitor the printer's vitals, jog and home the axes and start print jobs. You can't view the camera feed yet. The implementation is very bare-bones and it's not ready for general use.
 
 ## What do I need to build/run it?
 
