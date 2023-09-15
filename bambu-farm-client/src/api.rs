@@ -242,11 +242,12 @@ pub fn bambu_network_rs_send(device_id: String, data: String) -> i32 {
     println!("Sending {}", data);
 
     RUNTIME.block_on(async {
-        let result = MSG_TX
-            .lock()
-            .unwrap()
-            .get(&device_id)
-            .unwrap()
+        let sender = if let Some(sender) = MSG_TX.lock().unwrap().get(&device_id) {
+            sender.clone()
+        } else {
+            return BAMBU_NETWORK_ERR_SEND_MSG_FAILED;
+        };
+        let result = sender
             .send(SendMessageRequest {
                 dev_id: device_id,
                 data,
