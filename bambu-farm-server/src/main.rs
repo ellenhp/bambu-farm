@@ -125,23 +125,27 @@ impl BambuFarm for Farm {
 
             let stream = client.get_stream(100);
 
+            let connections = self.connections.clone();
             spawn(async move {
                 loop {
                     if let Ok(Some(message)) = stream.recv().await {
-                        response_tx
+                        let send_result = response_tx
                             .send(Ok(RecvMessage {
                                 connected: true,
                                 dev_id: dev_id.clone(),
                                 data: message.payload_str().to_string(),
                             }))
-                            .await
-                            .unwrap();
+                            .await;
+                        if send_result.is_err() {
+                            println!("Connection broken");
+                            break;
+                        };
                     } else {
                         println!("Connection broken");
                         break;
                     };
                 }
-                println!("Connection broken.");
+                connections.lock().unwrap().remove(&dev_id.clone());
             });
 
             self.connections
@@ -155,8 +159,8 @@ impl BambuFarm for Farm {
                     let recv_message = match recv_message {
                         Some(recv_message) => recv_message,
                         _ => {
-                            sleep(Duration::from_secs(10)).await;
-                            continue;
+                            eprintln!("Failed to receive message.");
+                            break;
                         }
                     };
                     println!("Publishing to topic");
