@@ -3,7 +3,6 @@ use std::env::current_dir;
 use std::fs::File;
 use std::io::Read;
 use std::sync::Mutex;
-use std::thread;
 use std::time::Duration;
 
 use cxx::let_cxx_string;
@@ -43,6 +42,10 @@ lazy_static! {
 lazy_static! {
     static ref MSG_TX: Mutex<HashMap<String, Sender<SendMessageRequest>>> =
         Mutex::new(HashMap::new());
+}
+
+lazy_static! {
+    static ref CURRENT_CONNECTED_PRINTER: Mutex<Option<String>> = Mutex::new(Some(String::new()));
 }
 
 #[cxx::bridge]
@@ -117,49 +120,54 @@ pub fn get_endpoint() -> String {
 }
 
 pub fn bambu_network_rs_init() {
+    env_logger::init();
     debug!("Calling network init");
     RUNTIME.spawn(async {
-        debug!("Connecting to localhost.");
-        thread::sleep(Duration::from_secs(1));
-        debug!("Connecting to localhost.");
-        let mut client = match BambuFarmClient::connect(get_endpoint()).await {
-            Ok(client) => client,
-            Err(_) => {
-                warn!("Failed to connect to farm.");
-                return;
-            }
-        };
-
-        debug!("Requesting available printers.");
-        let request = Request::new(PrinterOptionRequest {});
-        let mut stream = match client.get_available_printers(request).await {
-            Ok(stream) => stream.into_inner(),
-            Err(_) => {
-                debug!("Error while fetching available printers.");
-                return;
-            }
-        };
-        let mut failures = 0u32;
         loop {
-            if failures > 3 {
-                break;
-            }
-            let list = stream.next().await;
-            let list = match list {
-                Some(Ok(list)) => {
-                    failures = 0;
-                    list
-                }
-                _ => {
-                    failures += 1;
+            MSG_TX.lock().unwrap().clear();
+            debug!("Connecting to farm.");
+            let mut client = match BambuFarmClient::connect(get_endpoint()).await {
+                Ok(client) => client,
+                Err(_) => {
+                    warn!("Failed to connect to farm.");
                     sleep(Duration::from_secs(1)).await;
                     continue;
                 }
             };
-            for printer in list.options {
-                let_cxx_string!(
-                    json = format!(
-                        "{}
+
+            debug!("Requesting available printers.");
+            let request = Request::new(PrinterOptionRequest {});
+            let mut stream = match client.get_available_printers(request).await {
+                Ok(stream) => stream.into_inner(),
+                Err(_) => {
+                    warn!("Error while fetching available printers.");
+                    continue;
+                }
+            };
+            if let Some(printer) = CURRENT_CONNECTED_PRINTER.lock().unwrap().as_ref() {
+                bambu_network_rs_connect(printer.clone());
+            }
+            let mut failures = 0u32;
+            loop {
+                if failures > 3 {
+                    break;
+                }
+                let list = stream.next().await;
+                let list = match list {
+                    Some(Ok(list)) => {
+                        failures = 0;
+                        list
+                    }
+                    _ => {
+                        failures += 1;
+                        sleep(Duration::from_secs(1)).await;
+                        continue;
+                    }
+                };
+                for printer in list.options {
+                    let_cxx_string!(
+                        json = format!(
+                            "{}
                         \"dev_name\": \"{}\",
                         \"dev_id\": \"{}\",
                         \"dev_ip\": \"127.0.0.1\",
@@ -168,12 +176,13 @@ pub fn bambu_network_rs_init() {
                         \"connect_type\": \"lan\",
                         \"bind_state\": \"free\"
                         {}",
-                        "{", printer.dev_name, printer.dev_id, printer.model, "}"
-                    )
-                    .trim()
-                    .as_bytes()
-                );
-                bambu_network_cb_printer_available(&json);
+                            "{", printer.dev_name, printer.dev_id, printer.model, "}"
+                        )
+                        .trim()
+                        .as_bytes()
+                    );
+                    bambu_network_cb_printer_available(&json);
+                }
             }
         }
     });
@@ -208,6 +217,10 @@ pub fn bambu_network_rs_connect(device_id: String) -> i32 {
                 return;
             }
         };
+        CURRENT_CONNECTED_PRINTER
+            .lock()
+            .unwrap()
+            .replace(device_id.clone());
         {
             let_cxx_string!(device_id_cxx = device_id.clone());
             bambu_network_cb_connected(&device_id_cxx);

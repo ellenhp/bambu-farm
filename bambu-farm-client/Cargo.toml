@@ -15,6 +15,7 @@ config = { version = "0.13.3", features = ["toml"] }
 cxx = "1.0"
 futures = "0.3.28"
 lazy_static = "1.4.0"
+env_logger = "0.10.0"
 log = "0.4.20"
 prost = "0.12"
 rustls-native-certs = "0.6.3"
