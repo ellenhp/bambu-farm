@@ -6,6 +6,7 @@ message PrinterOptionRequest {
 message PrinterOption {
     string dev_name = 1;
     string dev_id = 2;
+    string model = 3;
 }
 
 message PrinterOptionList {

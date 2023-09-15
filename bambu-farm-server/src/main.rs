@@ -66,6 +66,7 @@ impl BambuFarm for Farm {
                         .map(|printer| PrinterOption {
                             dev_name: printer.name.clone(),
                             dev_id: printer.id.clone(),
+                            model: printer.model.clone(),
                         })
                         .collect(),
                 };
