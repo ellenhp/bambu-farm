@@ -6,8 +6,16 @@
 
 #include "bambu-farm-client/src/api.rs.h"
 
-#define LOG_CALL_ARGS(FORMAT, ...) (printf("%s (Line %d): " FORMAT "\n", __FUNCTION__, __LINE__, __VA_ARGS__))
-#define LOG_CALL() (printf("%s (Line %d)\n", __FUNCTION__, __LINE__))
+#define LOG_CALL_ARGS(FORMAT, ...) {\
+    char _log_macro_buf[1024];\
+    snprintf(_log_macro_buf, 1024, "%s (Line %d): " FORMAT "\n", __FUNCTION__, __LINE__, __VA_ARGS__);\
+    bambu_network_rs_log_debug(std::string(_log_macro_buf));\
+    }
+#define LOG_CALL() {\
+    char _log_macro_buf[1024];\
+    snprintf(_log_macro_buf, 1024, "%s (Line %d)\n", __FUNCTION__, __LINE__);\
+    bambu_network_rs_log_debug(std::string(_log_macro_buf));\
+    }
 
 static OnMsgArrivedFn on_msg_arrived;
 static OnLocalConnectedFn on_local_connect;
@@ -26,14 +34,14 @@ void bambu_network_cb_printer_available(const std::string &json) {
 }
 void bambu_network_cb_message_recv(const std::string &device_id, const std::string &message) {
     if (on_mqtt_message) {
-        printf("Calling MQTT callback with:\n%s\n", message.c_str());
+        LOG_CALL_ARGS("Calling MQTT callback with:\n%s", message.c_str());
         on_mqtt_message(device_id, message);
     }
 }
 void bambu_network_cb_connected(const std::string &device_id) {
     LOG_CALL();
     if (on_local_connect) {
-        printf("Calling connected callback\n");
+        LOG_CALL_ARGS("Calling connected callback for device %s", device_id.c_str());
         on_local_connect(0, device_id, "Connected");
     }
 }
@@ -278,7 +286,7 @@ int bambu_network_start_send_gcode_to_sdcard(void *agent_ptr, PrintParams params
 }
 int bambu_network_start_local_print(void *agent_ptr, PrintParams params, OnUpdateStatusFn update_fn, WasCancelledFn cancel_fn)
 {
-    LOG_CALL_ARGS("%s %s", params.project_name.c_str(), params.filename.c_str(), params.ams_mapping.c_str());
+    LOG_CALL_ARGS("%s %s %s", params.project_name.c_str(), params.filename.c_str(), params.ams_mapping.c_str());
     bambu_network_rs_upload_file(params.dev_id, params.filename, "print.gcode.3mf");
     std::this_thread::sleep_for (std::chrono::seconds(1));
     std::string json = "{\"print\":{\"sequence_id\":0,\"command\":\"project_file\",\"param\":\"Metadata/plate_1.gcode\",\"subtask_name\":\"print.gcode.3mf\",\"url\":\"ftp://print.gcode.3mf\",\"timelapse\":false,\"bed_leveling\":true,\"flow_cali\":false,\"vibration_cali\":false,\"layer_inspect\":true,\"use_ams\":true}}";

@@ -20,6 +20,7 @@ fn main() {
         .file("cpp/api.cpp")
         .include("cpp")
         .flag_if_supported("-std=c++11")
+        .flag_if_supported("-Wno-unused-parameter")
         // .link_lib_modifier("+whole-archive")
         .compile("bambu_networking_api");
 
