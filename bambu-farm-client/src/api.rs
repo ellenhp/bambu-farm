@@ -22,8 +22,7 @@ use tonic::Request;
 use crate::api::bambu_farm::{ConnectRequest, SendMessageRequest, UploadFileRequest};
 use crate::api::ffi::bambu_network_cb_connected;
 use crate::api::ffi::bambu_network_cb_message_recv;
-use crate::BAMBU_NETWORK_ERR_SEND_MSG_FAILED;
-use crate::BAMBU_NETWORK_SUCCESS;
+use crate::errors::{BAMBU_NETWORK_ERR_SEND_MSG_FAILED, BAMBU_NETWORK_SUCCESS};
 
 use self::bambu_farm::bambu_farm_client::BambuFarmClient;
 use self::bambu_farm::PrinterOptionRequest;
@@ -140,11 +139,19 @@ pub fn bambu_network_rs_init() {
                 return;
             }
         };
+        let mut failures = 0u32;
         loop {
+            if failures > 3 {
+                break;
+            }
             let list = stream.next().await;
             let list = match list {
-                Some(Ok(list)) => list,
+                Some(Ok(list)) => {
+                    failures = 0;
+                    list
+                }
                 _ => {
+                    failures += 1;
                     sleep(Duration::from_secs(1)).await;
                     continue;
                 }
@@ -156,12 +163,12 @@ pub fn bambu_network_rs_init() {
                         \"dev_name\": \"{}\",
                         \"dev_id\": \"{}\",
                         \"dev_ip\": \"127.0.0.1\",
-                        \"dev_type\": \"3DPrinter-X1-Carbon\",
+                        \"dev_type\": \"{}\",
                         \"dev_signal\": \"0dbm\",
                         \"connect_type\": \"lan\",
                         \"bind_state\": \"free\"
                         {}",
-                        "{", printer.dev_name, printer.dev_id, "}"
+                        "{", printer.dev_name, printer.dev_id, printer.model, "}"
                     )
                     .trim()
                     .as_bytes()
@@ -206,24 +213,43 @@ pub fn bambu_network_rs_connect(device_id: String) -> i32 {
             bambu_network_cb_connected(&device_id_cxx);
         }
         spawn(async move {
+            let mut failures = 0u32;
             loop {
+                if failures > 3 {
+                    break;
+                }
                 if let Some(message) = rx.recv().await {
                     debug!("Sending message: {}", message.data);
                     let response = match client.send_message(message).await {
-                        Ok(response) => response.into_inner(),
+                        Ok(response) => {
+                            failures = 0;
+                            response.into_inner()
+                        }
                         Err(_) => {
                             warn!("Error while sending message.");
                             return;
                         }
                     };
+                    if !response.success {
+                        warn!("Message failed to send.");
+                        failures += 1;
+                    }
                 }
             }
         });
+        let mut failures = 0u32;
         loop {
+            if failures > 3 {
+                break;
+            }
             let recv_message = stream.next().await;
             let recv_message = match recv_message {
-                Some(Ok(recv_message)) => recv_message,
+                Some(Ok(recv_message)) => {
+                    failures = 0;
+                    recv_message
+                }
                 _ => {
+                    failures += 1;
                     sleep(Duration::from_secs(10)).await;
                     continue;
                 }
