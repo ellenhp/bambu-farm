@@ -1,22 +1,18 @@
 use std::collections::HashMap;
 use std::env::current_dir;
 use std::fs::File;
-use std::io::BufReader;
 use std::io::Read;
-use std::net::Ipv4Addr;
-use std::net::UdpSocket;
-use std::pin::Pin;
-use std::sync::Arc;
 use std::sync::Mutex;
 use std::thread;
-use std::thread::JoinHandle;
 use std::time::Duration;
 
 use cxx::let_cxx_string;
 
-use config::{Config, ConfigError, Value};
+use config::{Config, ConfigError};
 use futures::StreamExt;
 use lazy_static::lazy_static;
+use log::debug;
+use log::warn;
 use tokio::spawn;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::Sender;
@@ -55,6 +51,7 @@ mod ffi {
 
     extern "Rust" {
         pub fn bambu_network_rs_init();
+        pub fn bambu_network_rs_log_debug(message: String);
         pub fn bambu_network_rs_connect(device_id: String) -> i32;
         pub fn bambu_network_rs_send(device_id: String, data: String) -> i32;
         pub fn bambu_network_rs_upload_file(
@@ -89,20 +86,20 @@ pub fn get_endpoint() -> String {
         Err(err) => {
             match err {
                 ConfigError::NotFound(_) => {
-                    eprintln!(
+                    warn!(
                         "No config file found. Try adding one at `{}`",
                         config_file_path.to_string_lossy()
                     );
                 }
                 ConfigError::FileParse { uri, cause } => {
                     if let Some(uri) = uri {
-                        eprintln!("Error parsing config file at {}\nCause:{}", uri, cause);
+                        warn!("Error parsing config file at {}\nCause:{}", uri, cause);
                     } else {
-                        eprintln!("Error parsing config file.")
+                        warn!("Error parsing config file.")
                     }
                 }
                 _ => {
-                    eprintln!("Unknown error parsing config file {:?}", err)
+                    warn!("Unknown error parsing config file {:?}", err)
                 }
             }
             return "http://[::1]:47403".into();
@@ -121,25 +118,25 @@ pub fn get_endpoint() -> String {
 }
 
 pub fn bambu_network_rs_init() {
-    println!("Calling network init");
+    debug!("Calling network init");
     RUNTIME.spawn(async {
-        println!("Connecting to localhost.");
+        debug!("Connecting to localhost.");
         thread::sleep(Duration::from_secs(1));
-        println!("Connecting to localhost.");
+        debug!("Connecting to localhost.");
         let mut client = match BambuFarmClient::connect(get_endpoint()).await {
             Ok(client) => client,
             Err(_) => {
-                println!("Failed to connect to farm.");
+                warn!("Failed to connect to farm.");
                 return;
             }
         };
 
-        println!("Requesting available printers.");
+        debug!("Requesting available printers.");
         let request = Request::new(PrinterOptionRequest {});
         let mut stream = match client.get_available_printers(request).await {
             Ok(stream) => stream.into_inner(),
             Err(_) => {
-                println!("Error while fetching available printers.");
+                debug!("Error while fetching available printers.");
                 return;
             }
         };
@@ -175,8 +172,12 @@ pub fn bambu_network_rs_init() {
     });
 }
 
+pub fn bambu_network_rs_log_debug(message: String) {
+    debug!("cxx: {}", message);
+}
+
 pub fn bambu_network_rs_connect(device_id: String) -> i32 {
-    println!("Attempting connection.");
+    debug!("Attempting connection.");
 
     let (tx, mut rx) = mpsc::channel(10);
     MSG_TX.lock().unwrap().insert(device_id.clone(), tx);
@@ -185,7 +186,7 @@ pub fn bambu_network_rs_connect(device_id: String) -> i32 {
         let mut client = match BambuFarmClient::connect("http://[::1]:47403").await {
             Ok(client) => client,
             Err(_) => {
-                println!("Failed to connect to farm.");
+                warn!("Failed to connect to farm.");
                 return;
             }
         };
@@ -196,7 +197,7 @@ pub fn bambu_network_rs_connect(device_id: String) -> i32 {
         let mut stream = match client.connect_printer(request).await {
             Ok(stream) => stream.into_inner(),
             Err(_) => {
-                println!("Error while fetching recieved messages.");
+                warn!("Error while fetching recieved messages.");
                 return;
             }
         };
@@ -207,11 +208,11 @@ pub fn bambu_network_rs_connect(device_id: String) -> i32 {
         spawn(async move {
             loop {
                 if let Some(message) = rx.recv().await {
-                    println!("Sending message: {}", message.data);
+                    debug!("Sending message: {}", message.data);
                     let response = match client.send_message(message).await {
                         Ok(response) => response.into_inner(),
                         Err(_) => {
-                            println!("Error while sending message.");
+                            warn!("Error while sending message.");
                             return;
                         }
                     };
@@ -239,7 +240,7 @@ pub fn bambu_network_rs_connect(device_id: String) -> i32 {
 }
 
 pub fn bambu_network_rs_send(device_id: String, data: String) -> i32 {
-    println!("Sending {}", data);
+    debug!("Sending {}", data);
 
     RUNTIME.block_on(async {
         let sender = if let Some(sender) = MSG_TX.lock().unwrap().get(&device_id) {
@@ -270,7 +271,7 @@ pub fn bambu_network_rs_upload_file(
         let mut client = match BambuFarmClient::connect("http://[::1]:47403").await {
             Ok(client) => client,
             Err(_) => {
-                println!("Failed to connect to farm.");
+                warn!("Failed to connect to farm.");
                 return BAMBU_NETWORK_ERR_SEND_MSG_FAILED;
             }
         };
