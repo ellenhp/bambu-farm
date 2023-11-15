@@ -268,8 +268,9 @@ fn construct_printer(config: Value) -> Option<Printer> {
         match model.to_string().to_lowercase().as_str() {
             "x1c" => "3DPrinter-X1-Carbon",
             "x1" => "3DPrinter-X1",
+            "p1p" => "C11",
             _ => {
-                eprintln!("Expected printer field `model` to be one of [`x1`, `x1c`].");
+                eprintln!("Expected printer field `model` to be one of [`p1p`, `x1`, `x1c`].");
                 return None;
             }
         }

@@ -84,8 +84,7 @@ namespace BBL
 
 #define BAMBU_NETWORK_LIBRARY "bambu_networking"
 #define BAMBU_NETWORK_AGENT_NAME "bambu_network_agent"
-#define BAMBU_NETWORK_AGENT_VERSION "01.07.04.02"
-
+#define BAMBU_NETWORK_AGENT_VERSION "01.07.07.89" // works with Bambu Studio 1.7.7.89
 // iot preset type strings
 #define IOT_PRINTER_TYPE_STRING "printer"
 #define IOT_FILAMENT_STRING "filament"
